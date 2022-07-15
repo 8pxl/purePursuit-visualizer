@@ -1,8 +1,5 @@
 from math import atan2, sqrt, cos, sin
-import tkinter
 from tkinter import *
-import time
-import pyautogui as pg
 
 px,py,x,y = 0,0,0,0
 lineIndex = 0
@@ -26,10 +23,6 @@ def minError(target,current):
         return(diff)
     else:
         return(360-b + s)
-
-def pointInCircle(point, radius):
-    global x,y
-    return True if distToPoint(x,y,point.getX, point.getY) < radius else False
 
 def dtr(input):
   return(PI*input/180)
@@ -69,7 +62,6 @@ def drawPoint(x,y):
 def drawLine(p1,p2):
     w.create_line(p1[0], p1[1], p2[0], p2[1])
 
-
 def drawRobot(x,y,heading): 
     scaled = []
     points = [(x+50,y+50), (x-50,y+50), (x-50,y-50), (x+50,y-50)]
@@ -86,7 +78,6 @@ def drawRobot(x,y,heading):
         w.create_line(scaled[i][0], scaled[i][1], scaled[i-1][0], scaled[i-1][1], fill = "red")
 
 #purePursuit/movement code
-
 
 def moveToVel(target):
     global currRotation,x,y
