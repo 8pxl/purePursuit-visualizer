@@ -2,9 +2,9 @@ from math import atan2, sqrt, cos, sin
 import tkinter
 from tkinter import *
 import time
+import pyautogui as pg
 
-x = 0
-y = 0
+px,py,x,y = 0,0,0,0
 lineIndex = 0
 currRotation = 0
 PI = 3.141592
@@ -18,8 +18,17 @@ class coordinate:
 def distToPoint(cx, cy, px, py):
   return sqrt( (px-cx)**2 + (py-cy)**2 ) 
 
+def minError(target,current):
+    b = max(target,current)
+    s = min(target,current)
+    diff = b - s
+    if diff <= 180:
+        return(diff)
+    else:
+        return(360-b + s)
 
 def pointInCircle(point, radius):
+    global x,y
     return True if distToPoint(x,y,point.getX, point.getY) < radius else False
 
 def dtr(input):
@@ -81,7 +90,7 @@ def drawRobot(x,y,heading):
 
 def moveToVel(target):
     global currRotation,x,y
-    lkp = 0.4
+    lkp = 0.04
     rkp = 0.08
 
     tx = target.getX
@@ -98,11 +107,12 @@ def moveToVel(target):
     targetHeading = targetHeading if targetHeading >= 0 else abs(targetHeading) + 180
 
     dir = dirToSpin(targetHeading,currHeading)  
-
+    
     # print(targetHeading,currHeading)
     # print(dir)
 
-    rotationError =  abs(targetHeading - currHeading) 
+    rotationError = minError(targetHeading,currHeading)
+    # print(diff)
 
     rotationVel = rotationError * rkp * dir 
 
@@ -115,17 +125,15 @@ def targetPoint(path, lookAhead, lineLookAhead, lineIndex):
     global x
     global y
 
-
     # farthestPoint = coordinate( path[lineLookAhead - 1].getX, path[lineLookAhead - 1].getY)
     targetPoint   = coordinate(0,0) 
     closestDist = 1000000000 
 
-
-    a = lineIndex+lineLookAhead if lineLookAhead < (len(path) - lineIndex) else len(path)-1
-    print(a)
+    a = lineIndex+lineLookAhead if lineLookAhead < (len(path) - lineIndex) else len(path) -1 
     for i in range(lineIndex, a):
 
         farthestPoint = coordinate( path[a-1].getX, path[a - 1].getY)
+        drawLine((x,y),(farthestPoint.getX, farthestPoint.getY))
         # print(range(lineIndex, lineIndex+lineLookAhead if lineIndex+lineLookAhead < len(path) - lineIndex - 1 else len(path) - lineIndex - 1))
 
         x1 = path[i].getX
@@ -171,6 +179,12 @@ def targetPoint(path, lookAhead, lineLookAhead, lineIndex):
               s1Valid = s1[0] >= minX and s1[0] <= maxX and s1[1] >= minY and s1[1] <= maxY 
               s2Valid = s2[0] >= minX and s2[0] <= maxX and s2[1] >= minY and s2[1] <= maxY 
 
+              if i == a-1 and not (a-1 == len(path)):
+                if(s1Valid):
+                  return(1)
+                if(s2Valid):
+                  return(1)
+
               s1Dist = distToPoint(s1[0],s1[1],farthestPoint.getX,farthestPoint.getY) 
               s2Dist = distToPoint(s2[0],s2[1],farthestPoint.getX, farthestPoint.getY) 
 
@@ -208,28 +222,51 @@ def odomStep(dl,dr):
   x -= deltaX
   y -= deltaY
 
-def moveToPurePursuit(path, lookAhead,  lineLookAhead,    finalTimeout):
-    global lineIndex
-    targetReached = False 
-    
-    if (pointInCircle(path[-1], lookAhead)):
-        targetReached = True
+targetReached = False 
 
-    if (pointInCircle(path[lineIndex + 1], lookAhead)):
-        lineIndex += 1 
+robotPath = []
+
+def moveToPurePursuit(path, lookAhead,  lineLookAhead,finalTimeout):
+    global lineIndex,targetReached,px,py,x,y,robotPath
+    
+    robotPath.extend( ((x,y),(px,py)))
+    # robotPath.append((x,y))
+    # robotPath.append((px,py))
+
+    # if (pointInCircle(path[lineIndex + 1], lookAhead)):
+    #     lineIndex += 1 
 
     target = targetPoint(path,lookAhead, lineLookAhead, lineIndex)
-    drawPoint(target.getX,target.getY)
 
+    if target == 1:
+      lineIndex += 1
+      print(lineIndex)
+      target = targetPoint(path,lookAhead, lineLookAhead, lineIndex)
+
+    
+    if lineIndex == len(path)-2:
+      print("hi")
+      targetReached = True
+
+    if targetReached == True:
+      target = path[-1]
+      
+    drawPoint(target.getX,target.getY)
     lVel,rVel = moveToVel(target) 
+    print(lVel,rVel)
     odomStep(lVel,rVel)
     drawRobot(x,y,currRotation)
+
+    px = x
+    py = y
+    
+    
 
 path = [(288, 792),(457, 599),(498, 380),(283, 330),(506, 188),(331, 136)]
 p1 = [coordinate(288,792), coordinate(457,599), coordinate(498,380), coordinate(283,330), coordinate(506,188), coordinate(331,136)]
 
-x = p1[0].getX 
-y = p1[0].getY
+x,px = p1[0].getX, p1[0].getX 
+y,py = p1[0].getY,p1[0].getY
 
 #graphics 
 
@@ -244,18 +281,26 @@ w = Canvas(master, width=canvas_width, height=canvas_height)
 w.create_rectangle(0 + 100 ,720 + 100 ,720+50 ,0+50) 
 w.pack(expand=YES, fill=BOTH)
 
-
-
 def step(event):
+  global robotPath
   w.delete("all")
   w.create_rectangle(0 + 100 ,720 + 100 ,720+50 ,0+50) 
   for i in range(len(path)):
     drawPoint(path[i][0], path[i][1])
     try:
         drawLine((path[i][0], path[i][1]), (path[i+1][0], path[i+1][1]))
+        
     except IndexError:
         pass
-  moveToPurePursuit(p1,90,3,1000)
+      
+  for i in range(len(robotPath)):
+
+    try:
+        w.create_line((robotPath[i][0], robotPath[i][1]), (robotPath[i+1][0], robotPath[i+1][1]), fill = "blue") 
+    except IndexError:
+        pass
+
+  moveToPurePursuit(p1,90,2,1000)
 
 drawRobot(path[0][0], path[0][1],0)
 
